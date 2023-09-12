@@ -1,3 +1,8 @@
+{-
+Group number: 58
+Group members: Allan Khaledi, Ali Berat Can
+-}
+
 import Cards
 import RunGame
 
@@ -49,11 +54,9 @@ display hnd = unwords (lines (unlines [displayCard x | x <- hnd]))
 -- Task 3A
 
 valueRank :: Rank -> Int
-valueRank King        = 10
-valueRank Queen       = 10
-valueRank Jack        = 10
 valueRank Ace         = 11
 valueRank (Numeric x) = x
+valueRank _ = 10
 
 valueCard :: Card -> Int
 valueCard (Card r s) = valueRank r
@@ -82,3 +85,22 @@ winner guestHand bankHand | gameOver guestHand                = Bank
                           | value guestHand > value bankHand  = Guest
                           | value guestHand < value bankHand  = Bank
                           | value guestHand == value bankHand = Bank
+
+
+allSuits :: [Suit]
+allSuits = [Hearts, Spades, Diamonds, Clubs]
+
+allRank ::  [Rank]
+allRank = [Ace, King, Queen, Jack, 
+           Numeric 2, Numeric 3, Numeric 4, 
+           Numeric 5, Numeric 6, Numeric 7, 
+           Numeric 8, Numeric 9, Numeric 10]
+
+fullDeck :: Deck
+fullDeck = [Card r s | r <- allRank, s <- allSuits]
+
+prop_size_fullDeck :: Bool
+prop_size_fullDeck = size fullDeck == 52
+
+draw :: Deck -> Hand -> (Deck, Hand)
+draw [] = error "draw: The deck is empty."
