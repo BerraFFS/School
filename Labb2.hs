@@ -5,7 +5,6 @@ Group members: Allan Khaledi, Ali Berat Can
 
 import Cards
 import RunGame
-
 aCard1 :: Card
 aCard1 = Card Ace Spades -- define your favorite card here
 
@@ -30,6 +29,9 @@ aCard5 = Card (Numeric 10) Clubs
 aHand2 :: Hand
 aHand2 = [aCard3, aCard4, aCard5] 
 
+handEmpty :: Hand
+handEmpty = []
+
 -- Task 1A
 
 {-
@@ -49,7 +51,7 @@ displayCard (Card r s) | r == King || r == Queen || r == Jack || r == Ace = show
                        | otherwise = show (valueRank r)  ++ " of " ++ show s
 
 display :: Hand -> String
-display hnd = unwords (lines (unlines [displayCard x | x <- hnd]))
+display hand = unwords (lines (unlines [displayCard x | x <- hand]))
 
 -- Task 3A
 
@@ -63,21 +65,21 @@ valueCard (Card r s) = valueRank r
 
 numberOfAces :: Hand -> Int
 numberOfAces [] = 0
-numberOfAces hnd = length [Ace | Card r _ <- hnd, r == Ace]
+numberOfAces hand = length [Ace | Card r _ <- hand, r == Ace]
 
 -- A set value for the hand before any corrections that are needed with multiple aces
 valueHand :: Hand -> Int
-valueHand hnd = sum [valueCard x | x <- hnd]
+valueHand hand = sum [valueCard x | x <- hand]
 
 value :: Hand -> Int
 value [] = 0
-value hnd | valueHand hnd > 21 = valueHand hnd - (10 * numberOfAces hnd) 
-          | otherwise = valueHand hnd
+value hand | valueHand hand > 21 = valueHand hand - (10 * numberOfAces hand) 
+           | otherwise = valueHand hand
 
 -- Task 4A
 
 gameOver :: Hand -> Bool
-gameOver hnd = value hnd > 21 
+gameOver hand = value hand > 21 
 
 winner :: Hand -> Hand -> Player
 winner guestHand bankHand | gameOver guestHand                = Bank
@@ -86,7 +88,7 @@ winner guestHand bankHand | gameOver guestHand                = Bank
                           | value guestHand < value bankHand  = Bank
                           | value guestHand == value bankHand = Bank
 
-
+-- Task 1B
 allSuits :: [Suit]
 allSuits = [Hearts, Spades, Diamonds, Clubs]
 
@@ -102,5 +104,51 @@ fullDeck = [Card r s | r <- allRank, s <- allSuits]
 prop_size_fullDeck :: Bool
 prop_size_fullDeck = size fullDeck == 52
 
+-- Task 2B
 draw :: Deck -> Hand -> (Deck, Hand)
-draw [] = error "draw: The deck is empty."
+draw [] hand = error "draw: The deck is empty."
+draw deck hand = (tail deck, head deck : hand) 
+
+-- Task 3B
+playBank' :: Deck -> Hand -> Hand
+playBank' deck bankHand | value bankHand < 16 = playBank' deck' bankHand'
+                        | otherwise       = bankHand
+  where (deck', bankHand') = draw deck bankHand
+
+playBank :: Deck -> Hand
+playBank deck = playBank' deck []
+  
+-- Task 4B OBS! många arbetstillfällen under veckan försvann pga sjukdom
+removeCard :: Int -> Deck -> (Card, Deck)
+removeCard n deck = (card, cardBefore ++ cardAfter)
+    where
+        (cardBefore, card:cardAfter) = splitAt n deck
+
+shuffle :: [Double] -> Deck -> Deck
+shuffle _ []        = []
+shuffle _ [c]       = [c]
+shuffle (d:ds) deck = shuffle ds newDeck
+  where
+    index = floor (d * fromIntegral (length deck))
+    (card, remainingDeck) = removeCard index deck 
+    newDeck = card : remainingDeck
+
+-- Koden bör fungera rent logiskt men vi stöter på lite problem och har inte kunnat gå vidare på grund av detta
+-- Vi behöver hjälp med vad vår input i GHCI bör vara, shuffle (???) fullDeck
+-- ett error dyker upp på shuffle funktionen när vi importerar Test.QuickCheck i koden, hur ska vi röra oss runt detta?
+
+{-
+-- Task 5B
+
+belongsTo :: Card -> Deck -> Bool
+c `belongsTo` []      = False
+c `belongsTo` (c':cs) = c == c' || c `belongsTo` cs
+
+prop_shuffle :: Card -> Deck -> Rand -> Bool
+prop_shuffle card deck (Rand randomlist) =
+    card `belongsTo` deck == card `belongsTo` shuffle randomlist deck
+
+prop_size_shuffle :: Rand -> Deck -> Bool
+prop_size_shuffle (Rand randomlist) deck = undefined
+
+-}
