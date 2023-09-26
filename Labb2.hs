@@ -5,6 +5,8 @@ Group members: Allan Khaledi, Ali Berat Can
 
 import Cards
 import RunGame
+import Test.QuickCheck hiding (shuffle)
+
 aCard1 :: Card
 aCard1 = Card Ace Spades -- define your favorite card here
 
@@ -51,17 +53,17 @@ displayCard (Card r s) | r == King || r == Queen || r == Jack || r == Ace = show
                        | otherwise = show (valueRank r)  ++ " of " ++ show s
 
 display :: Hand -> String
-display hand = unwords (lines (unlines [displayCard x | x <- hand]))
+display hand = unwords [displayCard x | x <- hand]
 
 -- Task 3A
 
 valueRank :: Rank -> Int
 valueRank Ace         = 11
 valueRank (Numeric x) = x
-valueRank _ = 10
+valueRank _           = 10
 
 valueCard :: Card -> Int
-valueCard (Card r s) = valueRank r
+valueCard (Card r _) = valueRank r
 
 numberOfAces :: Hand -> Int
 numberOfAces [] = 0
@@ -93,10 +95,7 @@ allSuits :: [Suit]
 allSuits = [Hearts, Spades, Diamonds, Clubs]
 
 allRank ::  [Rank]
-allRank = [Ace, King, Queen, Jack, 
-           Numeric 2, Numeric 3, Numeric 4, 
-           Numeric 5, Numeric 6, Numeric 7, 
-           Numeric 8, Numeric 9, Numeric 10]
+allRank = [Ace, King, Queen, Jack] ++ [Numeric n | n <- [2..10]]
 
 fullDeck :: Deck
 fullDeck = [Card r s | r <- allRank, s <- allSuits]
@@ -111,35 +110,24 @@ draw deck hand = (tail deck, head deck : hand)
 
 -- Task 3B
 playBank' :: Deck -> Hand -> Hand
-playBank' deck bankHand | value bankHand < 16 = playBank' deck' bankHand'
-                        | otherwise       = bankHand
-  where (deck', bankHand') = draw deck bankHand
+playBank' deck bankHand 
+  | value bankHand < 16 = playBank' deck' bankHand'
+  | otherwise       = bankHand
+  where 
+    (deck', bankHand') = draw deck bankHand
 
 playBank :: Deck -> Hand
 playBank deck = playBank' deck []
   
--- Task 4B OBS! många arbetstillfällen under veckan försvann pga sjukdom
-removeCard :: Int -> Deck -> (Card, Deck)
-removeCard n deck = (card, cardBefore ++ cardAfter)
-    where
-        (cardBefore, card:cardAfter) = splitAt n deck
-
+-- Task 4B 
 shuffle :: [Double] -> Deck -> Deck
-shuffle _ []        = []
-shuffle _ [c]       = [c]
-shuffle (d:ds) deck = shuffle ds newDeck
-  where
-    index = floor (d * fromIntegral (length deck))
-    (card, remainingDeck) = removeCard index deck 
-    newDeck = card : remainingDeck
+shuffle _ [] = []
+shuffle (r:rs) deck =
+  let index = floor (r * fromIntegral (length deck))
+      (before, card:after) = splitAt index deck
+   in card : shuffle rs (before ++ after)
 
--- Koden bör fungera rent logiskt men vi stöter på lite problem och har inte kunnat gå vidare på grund av detta
--- Vi behöver hjälp med vad vår input i GHCI bör vara, shuffle (???) fullDeck
--- ett error dyker upp på shuffle funktionen när vi importerar Test.QuickCheck i koden, hur ska vi röra oss runt detta?
-
-{-
 -- Task 5B
-
 belongsTo :: Card -> Deck -> Bool
 c `belongsTo` []      = False
 c `belongsTo` (c':cs) = c == c' || c `belongsTo` cs
@@ -149,6 +137,18 @@ prop_shuffle card deck (Rand randomlist) =
     card `belongsTo` deck == card `belongsTo` shuffle randomlist deck
 
 prop_size_shuffle :: Rand -> Deck -> Bool
-prop_size_shuffle (Rand randomlist) deck = undefined
+prop_size_shuffle (Rand randomlist) deck = size fullDeck == size (shuffle randomlist fullDeck)
 
--}
+implementation = Interface
+  {  iFullDeck  = fullDeck
+  ,  iValue     = value
+  ,  iDisplay   = display
+  ,  iGameOver  = gameOver
+  ,  iWinner    = winner
+  ,  iDraw      = draw
+  ,  iPlayBank  = playBank
+  ,  iShuffle   = shuffle
+  }
+
+main :: IO ()
+main = runGame implementation
