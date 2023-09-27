@@ -1,0 +1,9 @@
+overlaps :: Shape -> Shape -> Bool
+overlaps shape1 shape2 =
+  any (uncurry rowsOverlap) (zip (rows shape1) (rows shape2))
+
+rowsOverlap :: Row -> Row -> Bool
+rowsOverlap row1 row2 =
+  any (\(s1, s2) -> isJust s1 && isJust s2) (zip row1 row2)
+
+-- You'll need to import Data.Maybe (isJust) for this to work.
