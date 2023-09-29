@@ -85,7 +85,7 @@ addWalls shape = Shape (topWall : sideWalls ++ [bottomWall])
     bottomWall = blackRow
     
     -- Side walls
-    sideWalls = map (\row -> Just Black : row ++ [Just Black]) (rows shape)
+    sideWalls = [Just Black : row ++ [Just Black] | row <- rows shape]
 
 -- | Visualize the current game state. This is what the user will see
 -- when playing the game.
