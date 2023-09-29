@@ -87,10 +87,10 @@ addWalls shape = Shape (topWall : sideWalls ++ [bottomWall])
     -- Side walls
     sideWalls = [Just Black : row ++ [Just Black] | row <- rows shape]
 
--- | Visualize the current game state. This is what the user will see
+-- B6 | Visualize the current game state. This is what the user will see
 -- when playing the game.
 drawTetris :: Tetris -> Shape
-drawTetris (Tetris (v, p) w _) = w -- incomplete !!!
+drawTetris (Tetris (v, p) w _) = addWalls (combine (shiftShape v p) w)
 
 -- | The initial game state
 startTetris :: [Double] -> Tetris
@@ -101,5 +101,14 @@ startTetris rs = Tetris (startPosition, piece) well supply
 
 -- | React to input. The function returns 'Nothing' when it's game over,
 -- and @'Just' (n,t)@, when the game continues in a new state @t@.
+
+move :: (Int, Int) -> Tetris -> Tetris
+move (dh, dw) (Tetris ((h, w), shape) well shapes) =
+  Tetris ((h + dh, w + dw), shape) well shapes
+
+tick :: Tetris -> Maybe (Int, Tetris)
+tick t = Just (0, move (1, 0) t)
+
 stepTetris :: Action -> Tetris -> Maybe (Int, Tetris)
-stepTetris action t = Just (0, t) -- incomplete !!!
+stepTetris Tick t = tick t
+stepTetris action t = Just (0, t)
