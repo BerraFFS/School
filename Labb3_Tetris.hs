@@ -72,12 +72,20 @@ prop_Tetris t = prop_Shape (snd (piece t)) && wellSize == (20, 10)
 
 -- B5 | Add black walls around a shape
 addWalls :: Shape -> Shape
-addWalls s = let (numRows, numCols) = shapeSize s
-                 blackRow = replicate numCols (Just Black)
-                 topWall = Shape (blackRow : rows s)
-                 finalShape = Shape (rows topWall ++ [blackRow])
-                 resultString = show finalShape
-             in  resultString
+addWalls shape = Shape (topWall : sideWalls ++ [bottomWall])
+  where
+    numRows = length (rows shape)
+    numCols = length (head (rows shape))
+    
+    -- Create a row of black squares with the same length as the shape
+    blackRow = replicate (numCols + 2) (Just Black)
+    
+    -- Top and bottom walls
+    topWall = blackRow
+    bottomWall = blackRow
+    
+    -- Side walls
+    sideWalls = map (\row -> Just Black : row ++ [Just Black]) (rows shape)
 
 -- | Visualize the current game state. This is what the user will see
 -- when playing the game.
