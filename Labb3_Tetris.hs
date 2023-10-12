@@ -77,14 +77,10 @@ addWalls shape = Shape (topWall : sideWalls ++ [bottomWall])
     numRows = length (rows shape)
     numCols = length (head (rows shape))
     
-    -- Create a row of black squares with the same length as the shape
     blackRow = replicate (numCols + 2) (Just Black)
-    
-    -- Top and bottom walls
     topWall = blackRow
     bottomWall = blackRow
     
-    -- Side walls
     sideWalls = [Just Black : row ++ [Just Black] | row <- rows shape]
 
 -- B6 | Visualize the current game state. This is what the user will see
@@ -97,18 +93,101 @@ startTetris :: [Double] -> Tetris
 startTetris rs = Tetris (startPosition, piece) well supply
  where
   well         = emptyShape wellSize
-  piece:supply = repeat (allShapes !! 1) -- incomplete !!!
+  (piece:supply) = map selectShape rs 
+  selectShape r = allShapes !! (floor (r * fromIntegral (length allShapes)))
 
 -- | React to input. The function returns 'Nothing' when it's game over,
 -- and @'Just' (n,t)@, when the game continues in a new state @t@.
 
+-- B7
 move :: (Int, Int) -> Tetris -> Tetris
 move (dh, dw) (Tetris ((h, w), shape) well shapes) =
   Tetris ((h + dh, w + dw), shape) well shapes
 
-tick :: Tetris -> Maybe (Int, Tetris)
-tick t = Just (0, move (1, 0) t)
+-- B8
+-- tick :: Tetris -> Maybe (Int, Tetris)
+-- tick t = Just (0, move (1, 0) t)
+
+-- stepTetris :: Action -> Tetris -> Maybe (Int, Tetris)
+-- stepTetris Tick t = tick t
+-- stepTetris action t = Just (0, t)
+
+-- C1
+collision :: Tetris -> Bool
+collision (Tetris ((h, w), shape) well _ ) =
+  h < 0 || h + numRows > wellHeight || w < 0 || w + numCols > wellWidth || 
+  shape `overlaps` place ((h, w), shape) || shape `overlaps` well ||
+  any (\r -> (shiftShape (h, w) shape) `overlaps` r)
+  where
+    (numRows, numCols) = shapeSize shape
+
+{- tick :: Tetris -> Maybe (Int, Tetris)
+tick t 
+  | collision newTetris = Just (0, t)
+  | otherwise = Just (0, newTetris)
+  where
+    newTetris = move (1,0) t -}
+
+-- C2
+-- stepTetris :: Action -> Tetris -> Maybe (Int, Tetris)
+-- stepTetris Tick t = tick t
+-- stepTetris MoveDown t = tick t
+-- stepTetris action t = Just (0, t)
+
+-- C3
+-- stepTetris :: Action -> Tetris -> Maybe (Int, Tetris)
+-- stepTetris Tick t        = tick t
+-- stepTetris MoveDown t    = tick t
+-- stepTetris (MoveLeft) t  = Just (0, movePiece (-1) t)
+-- stepTetris (MoveRight) t = Just (0, movePiece 1 t)
+-- stepTetris action t      = Just (0, t)
+
+movePiece :: Int -> Tetris -> Tetris
+movePiece dw t 
+  | collision newTetris = t 
+  | otherwise = newTetris
+  where
+    newTetris = move (0, dw) t
+
+-- C4
+rotate :: Tetris -> Tetris
+rotate t 
+  | collision newTetris = t 
+  | otherwise = newTetris 
+  where
+    newTetris = Tetris (pos, rotateShape (snd (piece t))) (well t) (shapes t)
+    pos = fst (piece t)
+
+-- C6
+rotatePiece :: Tetris -> Tetris
+rotatePiece t 
+  | collision newTetris = t 
+  | otherwise = newTetris 
+  where
+    newTetris = Tetris (pos, rotateShape (snd (piece t))) (well t) (shapes t)
+    pos = fst (piece t)
 
 stepTetris :: Action -> Tetris -> Maybe (Int, Tetris)
-stepTetris Tick t = tick t
-stepTetris action t = Just (0, t)
+stepTetris Tick t        = tick t
+stepTetris MoveDown t    = tick t
+stepTetris (MoveLeft) t  = Just (0, movePiece (-1) t)
+stepTetris (MoveRight) t = Just (0, movePiece 1 t)
+stepTetris (Rotate) t    = Just (0, rotatePiece t)
+
+-- C7
+
+tick :: Tetris -> Maybe (Int, Tetris)
+tick t 
+  | collision newTetris = dropNewPiece t
+  | otherwise = Just (0, newTetris)
+  where
+    newTetris = move (1,0) t
+
+dropNewPiece :: Tetris -> Maybe (Int, Tetris)
+dropNewPiece t@(Tetris (pos, piece) well (nextPiece:shapes))
+  | collision newTetris = Just (0, t) 
+  | otherwise = Just (0, newTetris)
+  where
+    newWell = combine (place (pos, piece)) well
+    newTetris = Tetris (startPosition, nextPiece) newWell shapes
+
