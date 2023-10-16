@@ -17,6 +17,7 @@ import ConsoleGUI
 
 import Shapes
 import Shapes (prop_Shape)
+import Data.Maybe
 
 --------------------------------------------------------------------------------
 -- * The code that puts all the piece together
@@ -68,7 +69,8 @@ place (v, s) = shiftShape v s
 
 -- B4 | An invariant that startTetris and stepTetris should uphold
 prop_Tetris :: Tetris -> Bool
-prop_Tetris t = prop_Shape (snd (piece t)) && wellSize == (20, 10)
+prop_Tetris (Tetris (_, piece) well (nextPiece:supply)) = 
+  prop_Shape piece && shapeSize well == wellSize
 
 -- B5 | Add black walls around a shape
 addWalls :: Shape -> Shape
@@ -116,9 +118,10 @@ move (dh, dw) (Tetris ((h, w), shape) well shapes) =
 collision :: Tetris -> Bool
 collision (Tetris ((h, w), shape) well _ ) =
   h < 0 || h + numRows > wellHeight || w < 0 || w + numCols > wellWidth || 
-  shape `overlaps` place ((h, w), shape) || shape `overlaps` well ||
-  any (\r -> (shiftShape (h, w) shape) `overlaps` r)
+  placedShape `overlaps` shape  || placedShape `overlaps` well  || 
+  shape `overlaps` well 
   where
+    placedShape = place ((h, w), shape)
     (numRows, numCols) = shapeSize shape
 
 {- tick :: Tetris -> Maybe (Int, Tetris)
@@ -175,7 +178,6 @@ stepTetris (MoveRight) t = Just (0, movePiece 1 t)
 stepTetris (Rotate) t    = Just (0, rotatePiece t)
 
 -- C7
-
 tick :: Tetris -> Maybe (Int, Tetris)
 tick t 
   | collision newTetris = dropNewPiece t
@@ -183,11 +185,37 @@ tick t
   where
     newTetris = move (1,0) t
 
-dropNewPiece :: Tetris -> Maybe (Int, Tetris)
+
+-- C9
+isComplete :: Row -> Bool
+isComplete = all isJust
+
+clearLines :: Shape -> (Int, Shape)
+clearLines (Shape rows) =
+  let completedRows = filter isComplete rows
+      numCompletedRows = length completedRows
+      remainingRows = replicate (length completedRows) (emptyRow (length (head rows)))
+      newRows = remainingRows ++ filter (not . isComplete) rows
+  in (numCompletedRows, Shape newRows)
+
+-- C10
+{- dropNewPiece :: Tetris -> Maybe (Int, Tetris)
 dropNewPiece t@(Tetris (pos, piece) well (nextPiece:shapes))
   | collision newTetris = Just (0, t) 
-  | otherwise = Just (0, newTetris)
+  | otherwise = Just (numClearedRows, newTetris)
   where
     newWell = combine (place (pos, piece)) well
-    newTetris = Tetris (startPosition, nextPiece) newWell shapes
+    (numClearedRows, clearedWell) = clearLines newWell
+    newTetris = Tetris (startPosition, nextPiece) clearedWell shapes -}
+dropNewPiece :: Tetris -> Maybe (Int, Tetris)
+dropNewPiece t@(Tetris (pos, piece) well (nextPiece:supply))
+  | collision newTetris || pieceAboveTop newTetris = Nothing  -- End the game if there's a collision or the piece is above the top.
+  | otherwise = Just (clearedRows, newTetris)
+  where
+    newWell = combine (place (pos, piece)) well
+    (clearedRows, newWellAfterClear) = clearLines newWell
+    newTetris = Tetris (startPosition, nextPiece) newWellAfterClear supply
 
+-- Define a helper function to check if the piece is above the top of the well.
+pieceAboveTop :: Tetris -> Bool
+pieceAboveTop (Tetris ((_, y), _) _ _) = y < 0
