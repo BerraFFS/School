@@ -74,55 +74,19 @@ addBrackets e = show e
 -- Now you can check the data type invariant that you defined in A2 using
 -- QuickCheck.
 
--- (Optional)
--- Add a definition of function @shrink :: Expr -> [Expr]@ to 'Arbitrary'
--- which gives hints to QuickCheck on possible smaller expressions that it
--- could use to find a smaller counterexample for failing tests.
-
-{- exprGen :: Int -> Gen Expr
+exprGen :: Int -> Gen Expr
 exprGen size
-  | size <= 0 = oneof [Num <$> arbitrary, return (ExpExpr 1)]
-  | otherwise = oneof
-    [ Num <$> arbitrary
-    , return (ExpExpr 1)
-    , BinExpr AddOp <$> subExpr <*> subExpr
-    , BinExpr MulOp <$> subExpr <*> subExpr
-    , ExpExpr <$> choose (2, 10)
+  | size <= 0 = oneof [Num <$> arbitrary, ExpExpr <$> choose (2, 10)]
+  | otherwise = frequency
+    [ (4, BinExpr AddOp <$> subExpr <*> subExpr)
+    , (4, BinExpr MulOp <$> subExpr <*> subExpr)
     ]
   where
-    subExpr = exprGen (size `div` 2)
+    subSize = size `div` 2 
+    subExpr = exprGen subSize
 
 instance Arbitrary Expr where
-    arbitrary = sized exprGen -}
-
-{- exprGen :: Int -> Gen Expr
-exprGen size
-  | size <= 0 = oneof [Num <$> arbitrary, return (ExpExpr 1)]
-  | otherwise = oneof
-    [ Num <$> arbitrary
-    , ExpExpr <$> choose (2, 10)
-    , resize (size `div` 2) $ BinExpr AddOp <$> subExpr <*> subExpr
-    , resize (size `div` 2) $ BinExpr MulOp <$> subExpr <*> subExpr
-    ]
-  where
-    subExpr = exprGen (size `div` 2) -}
-
-genExpr :: Int -> Gen Expr
-genExpr 0 = oneof
-    [ Num <$> arbitrary
-    , ExpExpr <$> nonNegativeExponent
-    ]
-genExpr n = oneof
-    [ Num <$> arbitrary
-    , ExpExpr <$> nonNegativeExponent
-    , BinExpr <$> arbitrary <*> subExpr <*> subExpr
-    ]
-    where
-        nonNegativeExponent = choose (0, 5) 
-        subExpr = genExpr (n `div` 2)    
-
-instance Arbitrary Expr where
-    arbitrary = sized genExpr
+    arbitrary = sized exprGen
 
 --------------------------------------------------------------------------------
 -- * A5
@@ -161,7 +125,7 @@ polyToExpr poly = polyToExpr' (toList poly)
     polyToExpr' :: [Int] -> Expr
     polyToExpr' [] = Num 0
     polyToExpr' (c:cs)
-      | c == 0 = polyToExpr' cs  -- Skip zero coefficients
+      | c == 0 = polyToExpr' cs 
       | otherwise = addExpr (termToExpr c (length cs)) (polyToExpr' cs)
 
     -- Construct an expression for c * x^n
