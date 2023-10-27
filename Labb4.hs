@@ -95,7 +95,7 @@ exprGen size
 instance Arbitrary Expr where
     arbitrary = sized exprGen -}
 
-exprGen :: Int -> Gen Expr
+{- exprGen :: Int -> Gen Expr
 exprGen size
   | size <= 0 = oneof [Num <$> arbitrary, return (ExpExpr 1)]
   | otherwise = oneof
@@ -105,10 +105,24 @@ exprGen size
     , resize (size `div` 2) $ BinExpr MulOp <$> subExpr <*> subExpr
     ]
   where
-    subExpr = exprGen (size `div` 2)
+    subExpr = exprGen (size `div` 2) -}
+
+genExpr :: Int -> Gen Expr
+genExpr 0 = oneof
+    [ Num <$> arbitrary
+    , ExpExpr <$> nonNegativeExponent
+    ]
+genExpr n = oneof
+    [ Num <$> arbitrary
+    , ExpExpr <$> nonNegativeExponent
+    , BinExpr <$> arbitrary <*> subExpr <*> subExpr
+    ]
+    where
+        nonNegativeExponent = choose (0, 5) 
+        subExpr = genExpr (n `div` 2)    
 
 instance Arbitrary Expr where
-    arbitrary = sized exprGen
+    arbitrary = sized genExpr
 
 --------------------------------------------------------------------------------
 -- * A5
@@ -126,7 +140,7 @@ eval x expr = evalPoly x (exprToPoly expr)
 
 exprToPoly :: Expr -> Poly
 exprToPoly (Num n) = fromList [n]
-exprToPoly (ExpExpr n) = fromList [if i == n then 1 else 0 | i <- [0..]]
+exprToPoly (ExpExpr n) = fromList [if n == i then 1 else 0 | i <- [0 .. (2*n)]]
 exprToPoly (BinExpr AddOp expr1 expr2) = exprToPoly expr1 + exprToPoly expr2
 exprToPoly (BinExpr MulOp expr1 expr2) = exprToPoly expr1 * exprToPoly expr2
 
@@ -160,10 +174,10 @@ polyToExpr poly = polyToExpr' (toList poly)
 
     
     addExpr :: Expr -> Expr -> Expr
-    addExpr (Num 0) expr = expr  
-    addExpr expr (Num 0) = expr  
+    addExpr (Num 0) expr    = expr  
+    addExpr expr (Num 0)    = expr  
     addExpr (Num a) (Num b) = Num (a + b)
-    addExpr a b = BinExpr AddOp a b
+    addExpr a b             = BinExpr AddOp a b
 
 -- Write (and check) a quickCheck property for this function similar to
 -- question 6. 
@@ -175,6 +189,9 @@ prop_polyToExpr x poly = eval x (polyToExpr poly) == evalPoly x poly
 -- * A8
 -- Write a function @simplify@ which simplifies an expression by converting it 
 -- to a polynomial and back again.
+
+exprExample :: Expr
+exprExample = BinExpr AddOp (ExpExpr 2) (BinExpr MulOp (Num 3) (Num 2))
 
 simplify :: Expr -> Expr
 simplify = polyToExpr . exprToPoly
