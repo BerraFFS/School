@@ -79,7 +79,7 @@ addBrackets e = show e
 -- which gives hints to QuickCheck on possible smaller expressions that it
 -- could use to find a smaller counterexample for failing tests.
 
-exprGen :: Int -> Gen Expr
+{- exprGen :: Int -> Gen Expr
 exprGen size
   | size <= 0 = oneof [Num <$> arbitrary, return (ExpExpr 1)]
   | otherwise = oneof
@@ -90,11 +90,26 @@ exprGen size
     , ExpExpr <$> choose (2, 10)
     ]
   where
-    subExpr = exprGen (size - 1)
+    subExpr = exprGen (size `div` 2)
+
+instance Arbitrary Expr where
+    arbitrary = sized exprGen -}
+
+exprGen :: Int -> Gen Expr
+exprGen size
+  | size <= 0 = oneof [Num <$> arbitrary, ExpExpr <$> choose (2, 10)]
+  | otherwise = frequency
+    [ (1, Num <$> arbitrary)
+    , (1, ExpExpr <$> choose (2, 10))
+    , (2, BinExpr AddOp <$> subExpr size' <> subExpr size')
+    , (2, BinExpr MulOp <$> subExpr size' <> subExpr size')
+    ]
+  where
+    size'   = size `div` 2  -- Reduce size to avoid excessive growth
+    subExpr = exprGen 
 
 instance Arbitrary Expr where
     arbitrary = sized exprGen
-
 
 --------------------------------------------------------------------------------
 -- * A5
@@ -102,10 +117,7 @@ instance Arbitrary Expr where
 -- evaluates it.
 
 eval :: Int -> Expr -> Int
-eval x (Num n) = n
-eval x (ExpExpr n) = x ^ n
-eval x (BinExpr AddOp e1 e2) = eval x e1 + eval x e2
-eval x (BinExpr MulOp e1 e2) = eval x e1 * eval x e2
+eval x expr = evalPoly x (exprToPoly expr)
 
 --------------------------------------------------------------------------------
 -- * A6
@@ -173,14 +185,18 @@ simplify = polyToExpr . exprToPoly
 -- power of zero. (You may need to fix A7)
 
 prop_noJunk :: Expr -> Bool
-prop_noJunk expr = not (containsJunk expr)
-    where
-        containsJunk (Num 0) = True
-        containsJunk (Num 1) = True
-        containsJunk (ExpExpr 0) = True
-        containsJunk (BinExpr AddOp e1 e2) = containsJunk e1 && containsJunk e2
-        containsJunk (BinExpr MulOp e1 e2) = containsJunk e1 && containsJunk e2
-        containsJunk _ = False
+prop_noJunk expr = case simplify expr of
+  Num _               -> True
+  BinExpr AddOp e1 e2 -> not (isNumber e1 && isNumber e2) && not (isZero e1 || isZero e2)
+  BinExpr MulOp e1 e2 -> not (isNumber e1 && isNumber e2) && not (isOne e1 || isOne e2 || isZero e1 || isZero e2)
+  ExpExpr n           -> n /= 0
+  where
+    isNumber (Num _)  = True
+    isNumber _        = False
+    isZero (Num 0)    = True
+    isZero _          = False
+    isOne (Num 1)     = True
+    isOne _           = False
 
 --------------------------------------------------------------------------------
 -- * A10
@@ -213,11 +229,11 @@ writeDifficulty difficulty
 play :: IO ()
 play = do
   difficulty <- readDifficulty
-  expr <- generateRandomExpr difficulty 
-  xValue <- generateRandomXValue
+  expr       <- generateRandomExpr difficulty 
+  xValue     <- generateRandomXValue
   let simplifiedExpr = simplify expr
   putStrLn $ "Simplify the following expression with x = " ++ show xValue
-  putStrLn $ show expr
+  putStrLn $ show simplifiedExpr
   userGuess <- readLn
   if userGuess == eval xValue simplifiedExpr
     then do
