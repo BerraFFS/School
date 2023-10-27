@@ -97,16 +97,15 @@ instance Arbitrary Expr where
 
 exprGen :: Int -> Gen Expr
 exprGen size
-  | size <= 0 = oneof [Num <$> arbitrary, ExpExpr <$> choose (2, 10)]
-  | otherwise = frequency
-    [ (1, Num <$> arbitrary)
-    , (1, ExpExpr <$> choose (2, 10))
-    , (2, BinExpr AddOp <$> subExpr size' <> subExpr size')
-    , (2, BinExpr MulOp <$> subExpr size' <> subExpr size')
+  | size <= 0 = oneof [Num <$> arbitrary, return (ExpExpr 1)]
+  | otherwise = oneof
+    [ Num <$> arbitrary
+    , ExpExpr <$> choose (2, 10)
+    , resize (size `div` 2) $ BinExpr AddOp <$> subExpr <*> subExpr
+    , resize (size `div` 2) $ BinExpr MulOp <$> subExpr <*> subExpr
     ]
   where
-    size'   = size `div` 2  -- Reduce size to avoid excessive growth
-    subExpr = exprGen 
+    subExpr = exprGen (size `div` 2)
 
 instance Arbitrary Expr where
     arbitrary = sized exprGen
@@ -147,19 +146,22 @@ polyToExpr poly = polyToExpr' (toList poly)
   where
     polyToExpr' :: [Int] -> Expr
     polyToExpr' [] = Num 0
-    polyToExpr' [n] = Num n
-    polyToExpr' (0 : cs) = polyToExpr' cs
-    polyToExpr' (c : cs) = BinExpr AddOp (Num c) (powerExpr (length cs)) `addExpr` polyToExpr' cs
+    polyToExpr' (c:cs)
+      | c == 0 = polyToExpr' cs  -- Skip zero coefficients
+      | otherwise = addExpr (termToExpr c (length cs)) (polyToExpr' cs)
 
-    -- Construct an expression for x^n
-    powerExpr :: Int -> Expr
-    powerExpr n
-      | n == 0 = Num 1
-      | n == 1 = ExpExpr 1
-      | otherwise = BinExpr MulOp (ExpExpr 1) (powerExpr (n - 1))
+    -- Construct an expression for c * x^n
+    termToExpr :: Int -> Int -> Expr
+    termToExpr coef exp
+      | exp == 0  = Num coef  
+      | exp == 1  = ExpExpr coef  
+      | coef == 1 = ExpExpr exp  
+      | otherwise = BinExpr MulOp (Num coef) (ExpExpr exp)  
 
-    -- Helper function to add expressions
+    
     addExpr :: Expr -> Expr -> Expr
+    addExpr (Num 0) expr = expr  
+    addExpr expr (Num 0) = expr  
     addExpr (Num a) (Num b) = Num (a + b)
     addExpr a b = BinExpr AddOp a b
 
